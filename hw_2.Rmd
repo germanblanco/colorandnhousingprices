@@ -58,7 +58,7 @@ The variables that we will use for input are the following:
 
 ```{r}
 boston_work <- boston[, c('ZN','INDUS','RM','AGE','DIS','RAD','TAX','MEDV')]
-boston_work$y <- as.factor(ifelse(boston$PTRATIO > 19, 1, 0))
+boston_work$y <- as.factor(ifelse(boston$PTRATIO > 19, "suburb", "city"))
 ```
 
 ### Training vs. Test Split (Caret)
@@ -71,7 +71,8 @@ if (!require("caret")) install.packages("caret")
 if (!require("ggplot2")) install.packages("ggplot2")
 library(caret)
 library(ggplot2)
-set.seed(7777777)
+random_seed<-7777777
+set.seed(random_seed)
 ```
 
 Let us start by dividing this dataset in a standard 70-30 split for training and testing.
@@ -122,10 +123,68 @@ cm_rf <- confusionMatrix(test_set$y, test_set$pred_rf)
 cm_rf$table
 ```
 
-### Training vs. Test Split (Caret)
+### Training vs. Test Split (H2O)
 
+Now we are going to try the same process with [H2O](https://docs.h2o.ai/h2o/latest-stable/h2o-docs/automl.html).
+In addition we will use dplyr package syntax.
+
+```{r echo=TRUE, include=TRUE, warning=FALSE, message=FALSE}
+if (!require("h2o")) install.packages("h2o")
+if (!require("dplyr")) install.packages("dplyr")
+library(h2o)
+library(dplyr)
+h2o.init(nthreads = -1)
+```
+
+Again we divide this dataset in a standard 70-30 split for training and testing.
+
+```{r}
+h2o_boston_work <- as.h2o(boston_work)
+h2o_test_split <- h2o.splitFrame(h2o_boston_work, ratios = 0.7, seed = random_seed)
+h2o_training_set <- h2o_test_split[[1]]
+h2o_test_set <- h2o_test_split[[2]]
+```
+
+### Training (H2O)
+
+We will use the following models for this classification:
+
+- GBM:
+- AutoML:
+
+```{r}
+predictors <- names(h2o_boston_work)[-(length(names(h2o_boston_work)))]
+response <- "y"
+
+gbm <- h2o.gbm(x=predictors,
+               y="y",
+               training_frame=h2o_training_set,
+               validation_frame=h2o_test_set,
+               seed=random_seed)
+
+aml <- h2o.automl(x=predictors,
+               y="y",
+               training_frame=h2o_training_set,
+               validation_frame=h2o_test_set,
+               seed=random_seed,
+               max_runtime_secs = 100)
+```
+
+### Results (H2O)
+
+```{r}
+h2o.performance(gbm, h2o_test_set)
+```
+```{r}
+aml
+```
+
+```{r}
+h2o.get_best_model(aml)
+```
 
 ### Conclusion
 
-
+It seems that we totally can predict this neighborhood type out of the variables present in the dataset.
+This exercise served as a demonstration of how to use caret and H2O to create and evaulate models for this kind of classification.
 
