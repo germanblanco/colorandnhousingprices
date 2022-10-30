@@ -35,26 +35,27 @@ We can see in its histogram that the variable has a big lump around 20.
 These could be the houses that belong to the group that we want to spot (suburban neigborhoods with many pupils per teacher).
 
 ```{r}
-boston <- read.csv("/home/german/uc3m/Programming_R/colorandhousingprices/boston_house_prices.csv")
+boston <- read.csv("boston_house_prices.csv")
 hist(boston$PTRATIO)
 ```
 
 The median (19.05) of this variable is close to the point just below this lump around 20.
 So we are going to select the rounded value of the median (19) as the point that splits the data and create a categorical variable for the classification.
 
-```{r}
-```
-
 The variables that we will use for input are the following:
 
-- ZN: 
-- INDUS:
-- RM:
-- AGE:
-- DIS:
-- RAD:
-- TAX:
-- MEDV:
+Input features in order:  
+1) ZN: proportion of residential land zoned for lots over 25,000 sq.ft.  
+2) INDUS: proportion of non-retail business acres per town  
+3) RM: average number of rooms per dwelling  
+4) AGE: proportion of owner-occupied units built prior to 1940  
+5) DIS: weighted distances to five Boston employment centres  
+6) RAD: index of accessibility to radial highways  
+7) TAX: full-value property-tax rate per $10,000 [$/10k]  
+8) MEDV: Median value of owner-occupied homes in $1000's [k$]
+
+Output variable:
+9) PTRATIO: pupil-teacher ratio by town  
 
 ```{r}
 boston_work <- boston[, c('ZN','INDUS','RM','AGE','DIS','RAD','TAX','MEDV')]
@@ -104,11 +105,15 @@ Variables will be normalized.
 preProcess <- c("center","scale")
 knn <- train(y ~ ., method='knn', data = training_set, metric='Accuracy',preProcess = preProcess, trControl=trControl)
 rf <- train(y ~ ., method='rf', data = training_set, metric='Accuracy',preProcess = preProcess, trControl=trControl)
+nnet <- train(y ~ ., method='nnet', data = training_set, metric='Accuracy',preProcess = preProcess, trControl=trControl)
+glm <- train(y ~ ., method='glm', data = training_set, metric='Accuracy',preProcess = preProcess, trControl=trControl)
 ```
 With those trained models it is possible now to make a prediction in the test partition.
 ```{r}
 test_set$pred_knn <- predict(knn, test_set)
 test_set$pred_rf <- predict(rf, test_set)
+test_set$pred_nnet <- predict(nnet, test_set)
+test_set$pred_glm <- predict(glm, test_set)
 ```
 
 ### Results (Caret)
@@ -116,11 +121,17 @@ test_set$pred_rf <- predict(rf, test_set)
 ```{r}
 precision_knn <- posPredValue(test_set$y, test_set$pred_knn)
 precision_rf <- posPredValue(test_set$y, test_set$pred_rf)
+precision_nnet <- posPredValue(test_set$y, test_set$pred_nnet)
+precision_glm <- posPredValue(test_set$y, test_set$pred_glm)
 recall_knn <- sensitivity(test_set$y, test_set$pred_knn)
 recall_rf <- sensitivity(test_set$y, test_set$pred_rf)
+recall_nnet <- sensitivity(test_set$y, test_set$pred_nnet)
+recall_glm <- sensitivity(test_set$y, test_set$pred_glm)
 cm_knn <- confusionMatrix(test_set$y, test_set$pred_knn)
 cm_rf <- confusionMatrix(test_set$y, test_set$pred_rf)
-cm_rf$table
+cm_nnet <- confusionMatrix(test_set$y, test_set$pred_nnet)
+cm_glm <- confusionMatrix(test_set$y, test_set$pred_glm)
+
 ```
 
 ### Training vs. Test Split (H2O)
