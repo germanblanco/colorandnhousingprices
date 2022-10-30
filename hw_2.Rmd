@@ -24,7 +24,7 @@ In the [Boston Housing Dataset](https://www.kaggle.com/datasets/vikrishnan/bosto
 This is the pupil to teacher ratio.
 
 One of us lives in Paracuellos, a suburban town near Madrid, where it seems that every family has either more than two kids or several dogs.
-It is interesting to see how people in need of space, but of different cultures, income levels and family structures have all gather here.
+It is interesting to see how people in need of space, but of different cultures, income levels and family structures have all gathered here.
 Unsurprisingly, given the huge growth in a short period of years, one of the main problems of this town was low number of schools and teachers.
 This study will look at a (otherwise controversial) dataset in the US, and try to identify the main factors for moving to such neighborhoods.
 
@@ -70,8 +70,10 @@ We also set random seed in order to make results reproducible.
 ```{r echo=TRUE, include=TRUE, warning=FALSE, message=FALSE}
 if (!require("caret")) install.packages("caret")
 if (!require("ggplot2")) install.packages("ggplot2")
-library(caret)
-library(ggplot2)
+library(caret) # Misc functions for training and plotting classification and regression models.
+library(ggplot2) # ggplot2 is a system for declaratively creating graphics, based on The Grammar 
+# of Graphics. You provide the data, tell ggplot2 how to map variables to aesthetics, what graphical
+# primitives to use, and it takes care of the details.
 random_seed<-7777777
 set.seed(random_seed)
 ```
@@ -103,12 +105,16 @@ We will use the following models for this classification:
 We select accuracy as the metric, since we have a completely balanced binary dataset we can select this metric safely (otherwise we could go for e.g. F1-score).
 Variables will be normalized.
 
-```{r}
+```{r, message=FALSE, results='hide'}
 preProcess <- c("center","scale")
-knn <- train(y ~ ., method='knn', data = training_set, metric='Accuracy',preProcess = preProcess, trControl=trControl)
-rf <- train(y ~ ., method='rf', data = training_set, metric='Accuracy',preProcess = preProcess, trControl=trControl)
-nnet <- train(y ~ ., method='nnet', data = training_set, metric='Accuracy',preProcess = preProcess, trControl=trControl)
-glm <- train(y ~ ., method='glm', data = training_set, metric='Accuracy',preProcess = preProcess, trControl=trControl)
+knn <- train(y ~ ., method='knn', data = training_set, metric='Accuracy',preProcess = preProcess, 
+             trControl=trControl)
+rf <- train(y ~ ., method='rf', data = training_set, metric='Accuracy',preProcess = preProcess, 
+            trControl=trControl)
+nnet <- train(y ~ ., method='nnet', data = training_set, metric='Accuracy',preProcess = preProcess, 
+              trControl=trControl)
+glm <- train(y ~ ., method='glm', data = training_set, metric='Accuracy',preProcess = preProcess, 
+             trControl=trControl)
 ```
 With those trained models it is possible now to make a prediction in the test partition.
 ```{r}
@@ -134,12 +140,14 @@ accuracy_glm <- posPredValue(test_set$y, test_set$pred_glm)
 | nnet | `r accuracy_nnet ` |
 | glm | `r accuracy_glm ` |
 
-We can see that the best performance is yielded by the ... model.
+We can see that the best performance is yielded by the random forest model.
 Let's now check if an ensemble of the other 3 models can outperform this one.
 For that we will just use voting and take the prediction with most votes out of the three as a result.
 
 ```{r}
-test_set$pred_ensemble <- as.factor(ifelse(test_set$pred_nnet=="suburb", ifelse(test_set$pred_glm=="suburb", "suburb", as.character(test_set$pred_glm)), ifelse(test_set$pred_glm=="suburb", as.character(test_set$pred_glm), "city")))
+test_set$pred_ensemble <- as.factor(ifelse(test_set$pred_nnet=="suburb",
+            ifelse(test_set$pred_glm=="suburb", "suburb", as.character(test_set$pred_glm)),
+            ifelse(test_set$pred_glm=="suburb", as.character(test_set$pred_glm), "city")))
 
 accuracy_ensemble <- posPredValue(test_set$y, test_set$pred_ensemble)
 ```
@@ -156,11 +164,17 @@ It seems that the ensemble has actually a worse performance than one of the memb
 This is due to us, having mixed a very good classifier (the neural network), with other two that have lower accuracy and seem to make the same errors often.
 Normally, we should have tried to include diverse members in the ensemble so that they don't make the same mistakes together.
 
-Let us see now the confusion matrix.
+Let us see now the confusion matrix (CM) for each. First the ensemble to see it's performance.
 
 ```{r}
 confusionMatrix(test_set$y, test_set$pred_ensemble)
 ```
+As we can see in the ensemble's CM, it wrongly predicted city 17 times when it was a suburb (0.7733 accuracy), and wrongly predicted suburb 16 times when it should have been a city (0.7867 accuracy).
+
+```{r}
+confusionMatrix(test_set$y, test_set$pred_rf)
+```
+We see from the random forest, the accuracy was very high. But there were 8 suburb predictions when it should have been a city.
 
 
 ### Training vs. Test Split (H2O)
@@ -171,8 +185,14 @@ In addition we will use dplyr package syntax.
 ```{r echo=TRUE, include=TRUE, warning=FALSE, message=FALSE}
 if (!require("h2o")) install.packages("h2o")
 if (!require("dplyr")) install.packages("dplyr")
-library(h2o)
-library(dplyr)
+library(h2o) # R interface for 'H2O', the scalable open source machine learning platform that 
+# offers parallelized implementations of many supervised and unsupervised machine learning 
+# algorithms such as Generalized Linear Models (GLM), Gradient Boosting Machines (including 
+# XGBoost), Random Forests, Deep Neural Networks (Deep Learning), Stacked Ensembles, Naive Bayes,
+# Generalized Additive Models (GAM), ANOVA GLM, Cox Proportional Hazards, KMeans, PCA, ModelSelection,
+# Word2Vec, as well as a fully automatic machine learning algorithm (H2O AutoML).
+library(dplyr) # A fast, consistent tool for working with data frame like objects, both in memory 
+# and out of memory.
 h2o.init(nthreads = -1)
 ```
 
@@ -192,7 +212,7 @@ We will use the following models for this classification:
 - GBM:
 - AutoML:
 
-```{r}
+```{r, message=FALSE}
 predictors <- names(h2o_boston_work)[-(length(names(h2o_boston_work)))]
 response <- "y"
 
@@ -226,5 +246,36 @@ h2o.get_best_model(aml)
 ### Conclusion
 
 It seems that we totally can predict this neighborhood type out of the variables present in the dataset.
-This exercise served as a demonstration of how to use caret and H2O to create and evaulate models for this kind of classification.
+This exercise served as a demonstration of how to use caret and H2O to create and evaluate models for this kind of classification.
 
+#### References
+
+[1] https://www.kaggle.com/datasets/vikrishnan/boston-house-prices 
+
+[2] A Boston housing dataset controversy, M Carlisle, 13 Jun 2019 <https://medium.com/@docintangible/racist-data-destruction-113e3eff54a8>
+
+[3] J. Miguel Marin, Session-4A-Introduction-to-caret 
+<https://aulaglobal.uc3m.es/course/view.php?id=156200>
+
+[4] J. Miguel Marin, Session-4D-Introduction-to-H2O
+<https://aulaglobal.uc3m.es/course/view.php?id=156200>
+
+#### Library Citations
+
+‘caret’:
+  Kuhn M (2022). _caret: Classification and Regression Training_. R package version 6.0-93,
+  <https://CRAN.R-project.org/package=caret>.
+
+'ggplot2':
+  H. Wickham. ggplot2: Elegant Graphics for Data Analysis. Springer-Verlag New
+  York, 2016.
+
+‘dplyr’:
+  Wickham H, François R, Henry L, Müller K (2022). _dplyr: A Grammar of Data Manipulation_. R package
+  version 1.0.9, <https://CRAN.R-project.org/package=dplyr>.
+  
+‘h2o’:
+  LeDell E, Gill N, Aiello S, Fu A, Candel A, Click C, Kraljevic T, Nykodym T, Aboyoun P, Kurka M,
+  Malohlava M (2022). _h2o: R Interface for the 'H2O' Scalable Machine Learning Platform_. R package
+  version 3.38.0.1, <https://CRAN.R-project.org/package=h2o>.
+  
