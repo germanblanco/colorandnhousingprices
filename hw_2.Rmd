@@ -1,5 +1,5 @@
 ---
-title: "Boston Housing Prices Homework 2"
+title: "Suburbs in Boston Housing Prices"
 subtitle: "HW II. Programming in R. MSc Statistics for Data Science."
 author:
   - "Kendal Raymond William Smith <100494805@alumnos.uc3m.es>"
