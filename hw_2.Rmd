@@ -12,22 +12,120 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+# WARNING
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+The dataset used in this exercise has an ethical/racist problem, as reported in [Carlisle](https://medium.com/@docintangible/racist-data-destruction-113e3eff54a8).
+It is used here together with this warning, to highlight our awareness about ethical issues in data science.
+Furthermore, only variables that brought no concerns will be used in this study.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+## Determination of Pupil to Teach Ration by Demographics in Boston Housing Dataset
 
-```{r cars}
-summary(cars)
+In the [Boston Housing Dataset](https://www.kaggle.com/datasets/vikrishnan/boston-house-prices), there is one demographic variable that calls our attention.
+This is the pupil to teacher ratio.
+
+One of use lives in Paracuellos, a suburban town near Madrid, where it seems that every family has either more than two kids or several dogs.
+It is interesting to see how people in need of space, but of different cultures, income levels and family structures have all gather here.
+Unsurprisingly, given the huge growth in a short period of years, one of the main problems of this town was low number of schools and teachers.
+This study will look at a (otherwise controversial) dataset in the US, and try to identify the main factors for moving to such neighborhoods.
+
+### Introduction
+
+The goal of this work is to use several of the variables in the Boston Housing dataset and use them to classify the Pupil to Teacher ration variable.
+We can see in its histogram that the variable has a big lump around 20.
+These could be the houses that belong to the group that we want to spot (suburban neigborhoods with many pupils per teacher).
+
+```{r}
+boston <- read.csv("/home/german/uc3m/Programming_R/colorandhousingprices/boston_house_prices.csv")
+hist(boston$PTRATIO)
 ```
 
-## Including Plots
+The median (19.05) of this variable is close to the point just below this lump around 20.
+So we are going to select the rounded value of the median (19) as the point that splits the data and create a categorical variable for the classification.
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+The variables that we will use for input are the following:
+
+- ZN: 
+- INDUS:
+- RM:
+- AGE:
+- DIS:
+- RAD:
+- TAX:
+- MEDV:
+
+```{r}
+boston_work <- boston[, c('ZN','INDUS','RM','AGE','DIS','RAD','TAX','MEDV')]
+boston_work$y <- as.factor(ifelse(boston$PTRATIO > 19, 1, 0))
+```
+
+### Training vs. Test Split (Caret)
+
+We are going to use the caret package for training.
+We also set random seed in order to make results reproducible.
+
+```{r echo=TRUE, include=TRUE, warning=FALSE, message=FALSE}
+if (!require("caret")) install.packages("caret")
+if (!require("ggplot2")) install.packages("ggplot2")
+library(caret)
+library(ggplot2)
+set.seed(7777777)
+```
+
+Let us start by dividing this dataset in a standard 70-30 split for training and testing.
+
+```{r}
+test_split <- createDataPartition(y = boston_work$y, p=0.7, list=FALSE)
+training_set <- boston_work[test_split,]
+test_set <- boston_work[-test_split,]
+```
+
+In order to tune the model parameters, we are going to use cross validation.
+For this, we will use the standard number of 10 folds, and set the repetitions to 3.
+
+```{r}
+trControl <- trainControl(method = "repeatedcv", number=10, repeats=3)
+```
+
+### Training (Caret)
+
+We will use the following models for this classification:
+
+- KNN:
+- Random Forest:
+
+We select accuracy as the metric, since we have a completely balanced binary dataset we can select this metric safely (otherwise we could go for e.g. F1-score).
+Variables will be normalized.
+
+```{r}
+preProcess <- c("center","scale")
+knn <- train(y ~ ., method='knn', data = training_set, metric='Accuracy',preProcess = preProcess, trControl=trControl)
+rf <- train(y ~ ., method='rf', data = training_set, metric='Accuracy',preProcess = preProcess, trControl=trControl)
+```
+With those trained models it is possible now to make a prediction in the test partition.
+```{r}
+test_set$pred_knn <- predict(knn, test_set)
+test_set$pred_rf <- predict(rf, test_set)
+```
+
+### Results (Caret)
+
+```{r}
+precision_knn <- posPredValue(test_set$y, test_set$pred_knn)
+precision_rf <- posPredValue(test_set$y, test_set$pred_rf)
+recall_knn <- sensitivity(test_set$y, test_set$pred_knn)
+recall_rf <- sensitivity(test_set$y, test_set$pred_rf)
+cm_knn <- confusionMatrix(test_set$y, test_set$pred_knn)
+cm_rf <- confusionMatrix(test_set$y, test_set$pred_rf)
+cm_rf$table
+```
+
+### Training vs. Test Split (Caret)
+
+
+### Conclusion
+
+
+
