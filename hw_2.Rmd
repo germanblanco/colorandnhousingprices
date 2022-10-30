@@ -23,7 +23,7 @@ Furthermore, only variables that brought no concerns will be used in this study.
 In the [Boston Housing Dataset](https://www.kaggle.com/datasets/vikrishnan/boston-house-prices), there is one demographic variable that calls our attention.
 This is the pupil to teacher ratio.
 
-One of use lives in Paracuellos, a suburban town near Madrid, where it seems that every family has either more than two kids or several dogs.
+One of us lives in Paracuellos, a suburban town near Madrid, where it seems that every family has either more than two kids or several dogs.
 It is interesting to see how people in need of space, but of different cultures, income levels and family structures have all gather here.
 Unsurprisingly, given the huge growth in a short period of years, one of the main problems of this town was low number of schools and teachers.
 This study will look at a (otherwise controversial) dataset in the US, and try to identify the main factors for moving to such neighborhoods.
@@ -97,6 +97,8 @@ We will use the following models for this classification:
 
 - KNN:
 - Random Forest:
+- Neural Network:
+- Logistic Regression (GLM):
 
 We select accuracy as the metric, since we have a completely balanced binary dataset we can select this metric safely (otherwise we could go for e.g. F1-score).
 Variables will be normalized.
@@ -118,21 +120,48 @@ test_set$pred_glm <- predict(glm, test_set)
 
 ### Results (Caret)
 
-```{r}
-precision_knn <- posPredValue(test_set$y, test_set$pred_knn)
-precision_rf <- posPredValue(test_set$y, test_set$pred_rf)
-precision_nnet <- posPredValue(test_set$y, test_set$pred_nnet)
-precision_glm <- posPredValue(test_set$y, test_set$pred_glm)
-recall_knn <- sensitivity(test_set$y, test_set$pred_knn)
-recall_rf <- sensitivity(test_set$y, test_set$pred_rf)
-recall_nnet <- sensitivity(test_set$y, test_set$pred_nnet)
-recall_glm <- sensitivity(test_set$y, test_set$pred_glm)
-cm_knn <- confusionMatrix(test_set$y, test_set$pred_knn)
-cm_rf <- confusionMatrix(test_set$y, test_set$pred_rf)
-cm_nnet <- confusionMatrix(test_set$y, test_set$pred_nnet)
-cm_glm <- confusionMatrix(test_set$y, test_set$pred_glm)
-
+```{r message=FALSE, warning=FALSE}
+accuracy_knn <- posPredValue(test_set$y, test_set$pred_knn)
+accuracy_rf <- posPredValue(test_set$y, test_set$pred_rf)
+accuracy_nnet <- posPredValue(test_set$y, test_set$pred_nnet)
+accuracy_glm <- posPredValue(test_set$y, test_set$pred_glm)
 ```
+
+| Model | Accuracy |
+| :- | -: |
+| knn | `r accuracy_knn ` |
+| rf | `r accuracy_rf ` |
+| nnet | `r accuracy_nnet ` |
+| glm | `r accuracy_glm ` |
+
+We can see that the best performance is yielded by the ... model.
+Let's now check if an ensemble of the other 3 models can outperform this one.
+For that we will just use voting and take the prediction with most votes out of the three as a result.
+
+```{r}
+test_set$pred_ensemble <- as.factor(ifelse(test_set$pred_nnet=="suburb", ifelse(test_set$pred_glm=="suburb", "suburb", as.character(test_set$pred_glm)), ifelse(test_set$pred_glm=="suburb", as.character(test_set$pred_glm), "city")))
+
+accuracy_ensemble <- posPredValue(test_set$y, test_set$pred_ensemble)
+```
+
+| Model | Accuracy |
+| :- | -: |
+| knn | `r accuracy_knn ` |
+| rf | `r accuracy_rf ` |
+| nnet | `r accuracy_nnet ` |
+| glm | `r accuracy_glm ` |
+| ensemble | `r accuracy_ensemble ` |
+
+It seems that the ensemble has actually a worse performance than one of the members.
+This is due to us, having mixed a very good classifier (the neural network), with other two that have lower accuracy and seem to make the same errors often.
+Normally, we should have tried to include diverse members in the ensemble so that they don't make the same mistakes together.
+
+Let us see now the confusion matrix.
+
+```{r}
+confusionMatrix(test_set$y, test_set$pred_ensemble)
+```
+
 
 ### Training vs. Test Split (H2O)
 
