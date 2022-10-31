@@ -127,38 +127,40 @@ test_set$pred_glm <- predict(glm, test_set)
 ### Results (Caret)
 
 ```{r message=FALSE, warning=FALSE}
-accuracy_knn <- posPredValue(test_set$y, test_set$pred_knn)
-accuracy_rf <- posPredValue(test_set$y, test_set$pred_rf)
-accuracy_nnet <- posPredValue(test_set$y, test_set$pred_nnet)
-accuracy_glm <- posPredValue(test_set$y, test_set$pred_glm)
+cm_knn <- confusionMatrix(test_set$y, test_set$pred_knn)
+cm_rf <- confusionMatrix(test_set$y, test_set$pred_rf)
+cm_nnet <- confusionMatrix(test_set$y, test_set$pred_nnet)
+cm_glm <- confusionMatrix(test_set$y, test_set$pred_glm)
 ```
 
 | Model | Accuracy |
 | :- | -: |
-| knn | `r accuracy_knn ` |
-| rf | `r accuracy_rf ` |
-| nnet | `r accuracy_nnet ` |
-| glm | `r accuracy_glm ` |
+| knn | `r cm_knn["overall"]$overall["Accuracy"] ` |
+| rf | `r cm_rf["overall"]$overall["Accuracy"] ` |
+| nnet | `r cm_nnet["overall"]$overall["Accuracy"] ` |
+| glm | `r cm_glm["overall"]$overall["Accuracy"] ` |
 
 We can see that the best performance is yielded by the random forest model.
 Let's now check if an ensemble of the other 3 models can outperform this one.
 For that we will just use voting and take the prediction with most votes out of the three as a result.
 
 ```{r}
-test_set$pred_ensemble <- as.factor(ifelse(test_set$pred_nnet=="suburb",
-            ifelse(test_set$pred_glm=="suburb", "suburb", as.character(test_set$pred_glm)),
-            ifelse(test_set$pred_glm=="suburb", as.character(test_set$pred_glm), "city")))
+votes <- test_set[, c('pred_nnet','pred_knn','pred_glm')]
+votes$pred_nnet <- ifelse(votes$pred_nnet == "suburb", 1, 0)
+votes$pred_knn <- ifelse(votes$pred_knn == "suburb", 1, 0)
+votes$pred_glm <- ifelse(votes$pred_glm == "suburb", 1, 0)
+test_set$pred_ensemble <- as.factor(ifelse(apply(votes, MARGIN=1, mean) > 0.49, "suburb", "city"))
 
-accuracy_ensemble <- posPredValue(test_set$y, test_set$pred_ensemble)
+cm_ensemble <- confusionMatrix(test_set$y, test_set$pred_ensemble)
 ```
 
-| Model | Accuracy |
-| :- | -: |
-| knn | `r accuracy_knn ` |
-| rf | `r accuracy_rf ` |
-| nnet | `r accuracy_nnet ` |
-| glm | `r accuracy_glm ` |
-| ensemble | `r accuracy_ensemble ` |
+| Model | (Positive) Accuracy | Recall |
+| :- | -: | -: |
+| knn | `r cm_knn["overall"]$overall["Accuracy"] ` |
+| rf | `r cm_rf["overall"]$overall["Accuracy"] ` |
+| nnet | `r cm_nnet["overall"]$overall["Accuracy"] ` |
+| glm | `r cm_glm["overall"]$overall["Accuracy"] ` |
+| ensemble | `r cm_ensemble["overall"]$overall["Accuracy"] ` |
 
 It seems that the ensemble has actually a worse performance than one of the members.
 This is due to us, having mixed a very good classifier (the neural network), with other two that have lower accuracy and seem to make the same errors often.
