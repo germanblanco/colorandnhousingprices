@@ -70,10 +70,12 @@ We also set random seed in order to make results reproducible.
 ```{r echo=TRUE, include=TRUE, warning=FALSE, message=FALSE}
 if (!require("caret")) install.packages("caret")
 if (!require("ggplot2")) install.packages("ggplot2")
+if (!require("caTools")) install.packages("caTools")
 library(caret) # Misc functions for training and plotting classification and regression models.
 library(ggplot2) # ggplot2 is a system for declaratively creating graphics, based on The Grammar 
 # of Graphics. You provide the data, tell ggplot2 how to map variables to aesthetics, what graphical
 # primitives to use, and it takes care of the details.
+library(caTools)
 random_seed<-7777777
 set.seed(random_seed)
 ```
@@ -178,6 +180,12 @@ confusionMatrix(test_set$y, test_set$pred_rf)
 ```
 We see from the random forest, the accuracy was very high. But there were 8 suburb predictions when it should have been a city.
 
+### ROC curve
+
+```{r}
+probabilities <- predict(glm, test_set, type="prob")$suburb
+colAUC(probabilities, test_set$y, plotROC = TRUE)
+```
 
 ### Training vs. Test Split (H2O)
 
