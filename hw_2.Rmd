@@ -14,11 +14,11 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # WARNING
 
-The dataset used in this exercise has an ethical/racist problem, as reported in [Carlisle](https://medium.com/@docintangible/racist-data-destruction-113e3eff54a8).
+The dataset used in this exercise has an ethical/racist problem, as reported in [Carlisle](https://medium.com/@docintangible/racist-data-destruction-113e3eff54a8).[2]
 It is used here together with this warning, to highlight our awareness about ethical issues in data science.
 Furthermore, only variables that brought no concerns will be used in this study.
 
-## Determination of Pupil to Teach Ration by Demographics in Boston Housing Dataset
+## Determination of Pupil to Teach Ratio by Demographics in Boston Housing Dataset
 
 In the [Boston Housing Dataset](https://www.kaggle.com/datasets/vikrishnan/boston-house-prices), there is one demographic variable that calls our attention.
 This is the pupil to teacher ratio.
@@ -30,9 +30,9 @@ This study will look at a (otherwise controversial) dataset in the US, and try t
 
 ### Introduction
 
-The goal of this work is to use several of the variables in the Boston Housing dataset and use them to classify the Pupil to Teacher ration variable.
+The goal of this work is to use several of the variables in the Boston Housing dataset and use them to classify the Pupil to Teacher ratio variable.
 We can see in its histogram that the variable has a big lump around 20.
-These could be the houses that belong to the group that we want to spot (suburban neigborhoods with many pupils per teacher).
+These could be the houses that belong to the group that we want to spot (suburban neighbourhoods with many pupils per teacher).
 
 ```{r}
 boston <- read.csv("boston_house_prices.csv")
@@ -75,8 +75,11 @@ library(caret) # Misc functions for training and plotting classification and reg
 library(ggplot2) # ggplot2 is a system for declaratively creating graphics, based on The Grammar 
 # of Graphics. You provide the data, tell ggplot2 how to map variables to aesthetics, what graphical
 # primitives to use, and it takes care of the details.
-library(caTools)
-random_seed<-7777777
+library(caTools) #Contains several basic utility functions including: moving (rolling,
+# running) window statistic functions, read/write for GIF and ENVI binary files, fast
+# calculation of AUC, LogitBoost classifier, base64 encoder/decoder, round-off-error-free 
+# sumand cumsum, etc.
+random_seed<-42 # the answer to everything.
 set.seed(random_seed)
 ```
 
@@ -99,15 +102,16 @@ trControl <- trainControl(method = "repeatedcv", number=10, repeats=3)
 
 We will use the following models for this classification:
 
-- KNN:
-- Random Forest:
-- Neural Network:
-- Logistic Regression (GLM):
+- KNN: the K-nearest neighbor classifier algorithm predicts the variable by finding the nearest neighbor class.[5] 
+- Random Forest: The random forest algorithm is made up of many trees. It uses bagging and uses randomness when building each tree to create an uncorrelated forest whose prediction by vote is more accurate than that of an individual tree.[6]
+- Neural Network: A biologically inspired algorithm that learns through analyzing data through linking different nodes (neurons)[7]
+- Logistic Regression (GLM): Logistic regression measures the relationship between the dependent variable and one or more independent variables by estimating probabilities using the underlying logit function. In statistics, the logit function or the log-odds is the logarithm of the odds.[8]
 
 We select accuracy as the metric, since we have a completely balanced binary dataset we can select this metric safely (otherwise we could go for e.g. F1-score).
 Variables will be normalized.
 
-```{r, message=FALSE, results='hide'}
+
+```{r, include=FALSE}
 preProcess <- c("center","scale")
 knn <- train(y ~ ., method='knn', data = training_set, metric='Accuracy',preProcess = preProcess, 
              trControl=trControl)
@@ -142,16 +146,22 @@ cm_glm <- confusionMatrix(test_set$y, test_set$pred_glm)
 | nnet | `r cm_nnet["overall"]$overall["Accuracy"] ` |
 | glm | `r cm_glm["overall"]$overall["Accuracy"] ` |
 
-We can see that the best performance is yielded by the random forest model.
+We can see that by far the best performance is yielded by the random forest model.
 Let's now check if an ensemble of the other 3 models can outperform this one.
 For that we will just use voting and take the prediction with most votes out of the three as a result.
 
 ```{r}
+
+test_set$pred_ensemble <- as.factor(ifelse(test_set$pred_nnet=="suburb",
+            ifelse(test_set$pred_glm=="suburb", "suburb", as.character(test_set$pred_glm)),
+            ifelse(test_set$pred_glm=="suburb", as.character(test_set$pred_glm), "city")))
+
 votes <- test_set[, c('pred_nnet','pred_knn','pred_glm')]
 votes$pred_nnet <- ifelse(votes$pred_nnet == "suburb", 1, 0)
 votes$pred_knn <- ifelse(votes$pred_knn == "suburb", 1, 0)
 votes$pred_glm <- ifelse(votes$pred_glm == "suburb", 1, 0)
 test_set$pred_ensemble <- as.factor(ifelse(apply(votes, MARGIN=1, mean) > 0.49, "suburb", "city"))
+
 
 cm_ensemble <- confusionMatrix(test_set$y, test_set$pred_ensemble)
 ```
@@ -164,28 +174,34 @@ cm_ensemble <- confusionMatrix(test_set$y, test_set$pred_ensemble)
 | glm | `r cm_glm["overall"]$overall["Accuracy"] ` |
 | ensemble | `r cm_ensemble["overall"]$overall["Accuracy"] ` |
 
-It seems that the ensemble has actually a worse performance than one of the members.
-This is due to us, having mixed a very good classifier (the neural network), with other two that have lower accuracy and seem to make the same errors often.
-Normally, we should have tried to include diverse members in the ensemble so that they don't make the same mistakes together.
+The ensemble has a better performance than its three members, which means it is performing its job correctly, but overall the random forest still outclasses the other three in the ensemble by a wide margin.
+
+
 
 Let us see now the confusion matrix (CM) for each. First the ensemble to see it's performance.
 
 ```{r}
 confusionMatrix(test_set$y, test_set$pred_ensemble)
 ```
-As we can see in the ensemble's CM, it wrongly predicted city 17 times when it was a suburb (0.7733 accuracy), and wrongly predicted suburb 16 times when it should have been a city (0.7867 accuracy).
+As we can see in the ensemble's CM, it wrongly predicted city 11 times when it was a suburb (0.8533 accuracy), and wrongly predicted suburb 9 times when it should have been a city (0.8800 accuracy).
+<<<<<<< HEAD
 
 ```{r}
 confusionMatrix(test_set$y, test_set$pred_rf)
 ```
-We see from the random forest, the accuracy was very high. But there were 8 suburb predictions when it should have been a city.
+We see from the random forest, the accuracy was very high. There was only 1 city prediction when it should have been a suburb.
 
-### ROC curve
+
+
+### Receiver Operator Characteristic (ROC) curve
+
+A ROC curve plots the true positive rate (TPR) against the false positive rate (FPR).
 
 ```{r}
 probabilities <- predict(glm, test_set, type="prob")$suburb
-colAUC(probabilities, test_set$y, plotROC = TRUE)
+colAUC(probabilities, test_set$y, plotROC = TRUE, alg=c("Wilcoxon","ROC"))
 ```
+We can get a visualisation of the performance of the model by looking at the ROC curve. A completely random result would put the curve as a line x=y (i.e. 45° line). The further from this mid-line to the top left, the better the performance of the model. We can see this model performs very well, and the value for the Area Under the Curve (AUC) is 0.912 - the overall performance of the model as a single measurement.
 
 ### Training vs. Test Split (H2O)
 
@@ -219,8 +235,8 @@ h2o_test_set <- h2o_test_split[[2]]
 
 We will use the following models for this classification:
 
-- GBM:
-- AutoML:
+- GBM: Gradient Boosting Machine (for Regression and Classification) is a forward learning ensemble method. The guiding heuristic is that good predictive results can be obtained through increasingly refined approximations. H2O’s GBM sequentially builds regression trees on all the features of the dataset in a fully distributed way - each tree is built in parallel.[9]
+- AutoML:H2O’s AutoML can be used for automating the machine learning workflow, which includes automatic training and tuning of many models within a user-specified time-limit.[10]
 
 ```{r, message=FALSE}
 predictors <- names(h2o_boston_work)[-(length(names(h2o_boston_work)))]
@@ -230,13 +246,13 @@ gbm <- h2o.gbm(x=predictors,
                y="y",
                training_frame=h2o_training_set,
                validation_frame=h2o_test_set,
-               seed=random_seed)
+               seed=42)
 
 aml <- h2o.automl(x=predictors,
                y="y",
                training_frame=h2o_training_set,
                validation_frame=h2o_test_set,
-               seed=random_seed,
+               seed=42,
                max_runtime_secs = 100)
 ```
 
@@ -245,9 +261,14 @@ aml <- h2o.automl(x=predictors,
 ```{r}
 h2o.performance(gbm, h2o_test_set)
 ```
+We can see this model has performed very well with the data set. No false negatives or false positives. 100% accuracy.
+
 ```{r}
 aml
 ```
+We see that the h2o.automl function is very interesting. It is like the ensemble we devised but perhaps even better. It has trained various models within our maximum runtime. It has ranked the models with the highest prediction accuracy. The top 10 are all very high performing models.
+
+We can display just the best model with its statistical data below:
 
 ```{r}
 h2o.get_best_model(aml)
@@ -260,7 +281,7 @@ This exercise served as a demonstration of how to use caret and H2O to create an
 
 #### References
 
-[1] https://www.kaggle.com/datasets/vikrishnan/boston-house-prices 
+[1] <https://www.kaggle.com/datasets/vikrishnan/boston-house-prices>
 
 [2] A Boston housing dataset controversy, M Carlisle, 13 Jun 2019 <https://medium.com/@docintangible/racist-data-destruction-113e3eff54a8>
 
@@ -269,6 +290,18 @@ This exercise served as a demonstration of how to use caret and H2O to create an
 
 [4] J. Miguel Marin, Session-4D-Introduction-to-H2O
 <https://aulaglobal.uc3m.es/course/view.php?id=156200>
+
+[5] Rahul Saxena, data aspirant - Introduction to K-nearest neighbor classifier, 23 Dec 2016 <https://dataaspirant.com/k-nearest-neighbor-classifier-intro/>
+
+[6] Tony Yiu, Towards Data Science - Understanding Random Forest, 12 Jun 2019 <https://towardsdatascience.com/understanding-random-forest-58381e0602d2#:~:text=The%20random%20forest%20is%20a,that%20of%20any%20individual%20tree.>
+
+[7] Finstats, R-Bloggers - What’s Neural Network?, 2 Nov 2022 <https://www.r-bloggers.com/2021/11/whats-neural-network/> 
+
+[8] ajitjaokar, Data Science Central - Explaining Logistic Regression as Generalized Linear Model (in use as a classifier), 20 Sep 2019 <https://www.datasciencecentral.com/explaining-logistic-regression-as-generalized-linear-model-in-use/#:~:text=Logistic%20Regression%20as%20GLM&text=Logistic%20regression%20measures%20the%20relationship,the%20logarithm%20of%20the%20odds.>
+
+[9] h2o.ai - Gradient Boosting Machine (GBM), Last updated on Oct 27, 2022, <https://docs.h2o.ai/h2o/latest-stable/h2o-docs/data-science/gbm.html>
+
+[10] h2o.ai - AutoML: Automatic Machine Learning - Gradient Boosting Machine (GBM), Last updated on Oct 27, 2022, <https://docs.h2o.ai/h2o/latest-stable/h2o-docs/automl.html>
 
 #### Library Citations
 
@@ -288,4 +321,8 @@ This exercise served as a demonstration of how to use caret and H2O to create an
   LeDell E, Gill N, Aiello S, Fu A, Candel A, Click C, Kraljevic T, Nykodym T, Aboyoun P, Kurka M,
   Malohlava M (2022). _h2o: R Interface for the 'H2O' Scalable Machine Learning Platform_. R package
   version 3.38.0.1, <https://CRAN.R-project.org/package=h2o>.
+  
+‘caTools’:
+  Tuszynski J (2021). _caTools: Tools: Moving Window Statistics, GIF, Base64, ROC AUC, etc_. R package
+  version 1.18.2, <https://CRAN.R-project.org/package=caTools>.
   
